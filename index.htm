@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mestre da IA - Livro-Jogo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        h1, h2, .medieval-font {
+            font-family: 'Cinzel', serif;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-card {
+            transition: all 0.3s ease;
+        }
+
+        .choice-btn {
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .choice-btn:hover {
+            transform: translateX(5px);
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .scroll-custom::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scroll-custom::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        .scroll-custom::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 10px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header / Status Bar -->
+    <nav class="glass-panel sticky top-0 z-50 p-4 border-b border-blue-900/30">
+        <div class="max-w-5xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-dragon text-blue-500 text-2xl"></i>
+                <h1 class="text-xl font-bold tracking-widest uppercase text-blue-100">RPG Mestre IA</h1>
+            </div>
+            
+            <div class="flex gap-6 text-sm font-semibold">
+                <div class="flex items-center gap-2 text-red-400" title="Vida">
+                    <i class="fa-solid fa-heart"></i>
+                    <span id="stat-hp">100</span>
+                </div>
+                <div class="flex items-center gap-2 text-blue-400" title="Energia">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span id="stat-energy">50</span>
+                </div>
+                <div class="flex items-center gap-2 text-yellow-400" title="Ouro">
+                    <i class="fa-solid fa-coins"></i>
+                    <span id="stat-gold">100</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-5xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Left Column: Story & Actions -->
+        <div class="md:col-span-2 flex flex-col gap-4">
+            <div id="game-log" class="glass-panel rounded-xl p-6 h-[500px] overflow-y-auto scroll-custom flex flex-col gap-4">
+                <!-- Story text will appear here -->
+                <div class="animate-fade">
+                    <p class="text-blue-300 italic mb-2">O Mestre aguarda o seu início...</p>
+                    <p class="text-lg leading-relaxed">Bem-vindo, aventureiro. Esta é uma jornada moldada pelas suas decisões. Clique no botão abaixo para despertar e começar a sua história.</p>
+                </div>
+            </div>
+
+            <!-- Input / Choice Area -->
+            <div id="action-area" class="glass-panel rounded-xl p-4">
+                <div id="choices-container" class="grid grid-cols-1 gap-2">
+                    <!-- Dynamic buttons will appear here -->
+                    <button onclick="startGame()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all transform hover:scale-[1.02]">
+                        INICIAR AVENTURA
+                    </button>
+                </div>
+                
+                <div id="loading-indicator" class="hidden flex items-center justify-center py-4 gap-3">
+                    <div class="loading-spinner"></div>
+                    <span class="text-blue-400 font-medium">O Mestre está a pensar...</span>
+                </div>
+
+                <div id="custom-action" class="hidden mt-4 pt-4 border-t border-slate-700">
+                    <div class="flex gap-2">
+                        <input type="text" id="free-text" placeholder="Ou digite uma ação livre..." class="flex-grow bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 text-slate-200">
+                        <button onclick="handleFreeAction()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg transition-colors">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Inventory & Stats Detail -->
+        <div class="flex flex-col gap-6">
+            <div class="glass-panel rounded-xl p-6">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2 border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-bag-shopping text-blue-400"></i> INVENTÁRIO
+                </h2>
+                <ul id="inventory-list" class="space-y-2 text-sm text-slate-300">
+                    <li class="italic text-slate-500">Nenhum item...</li>
+                </ul>
+            </div>
+
+            <div class="glass-panel rounded-xl p-6">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2 border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-scroll text-blue-400"></i> NOTAS
+                </h2>
+                <p id="game-notes" class="text-sm text-slate-400 leading-relaxed italic">
+                    As suas descobertas importantes serão anotadas aqui.
+                </p>
+            </div>
+
+            <button onclick="resetGame()" class="text-xs text-slate-500 hover:text-red-400 transition-colors self-end uppercase tracking-tighter">
+                Reiniciar Jornada
+            </button>
+        </div>
+    </main>
+
+    <script>
+        const apiKey = ""; // API Key fornecida pelo ambiente
+        
+        // Estado do Jogo
+        let gameState = {
+            hp: 100,
+            energy: 50,
+            gold: 100,
+            inventory: ["Adaga Enferrujada", "Rações de Viagem"],
+            history: [],
+            notes: "O início da jornada."
+        };
+
+        // Prompt de Sistema para o Mestre
+        const systemPrompt = `Você é um Mestre de RPG experiente num mundo de Fantasia Dark.
+Sua tarefa é narrar a história e gerenciar os status do jogador.
+
+REGRAS ESTREITAS:
+1. Responda SEMPRE em formato JSON com a seguinte estrutura:
+{
+  "narrativa": "texto da história aqui",
+  "mudancas_status": { "hp": 0, "energia": 0, "gold": 0 },
+  "itens_ganhos": [],
+  "itens_perdidos": [],
+  "notas_atualizadas": "resumo breve do que aconteceu para registro",
+  "opcoes": [
+    {"id": "A", "texto": "Opção A"},
+    {"id": "B", "texto": "Opção B"},
+    {"id": "C", "texto": "Opção C"}
+  ]
+}
+
+2. Mantenha o tom imersivo, descritivo e perigoso.
+3. Se o HP chegar a 0, narre a morte e não dê mais opções de jogo.
+4. O jogador começa com HP: 100, Energia: 50, Ouro: 100.
+5. As opções de escolha devem ser curtas e impactantes.
+6. Nunca saia do personagem de Mestre.`;
+
+        async function fetchGemini(userPrompt) {
+            showLoading(true);
+            
+            const payload = {
+                contents: [{ 
+                    parts: [{ text: `Estado Atual do Jogador: ${JSON.stringify(gameState)}\n\nAção do Jogador: ${userPrompt}` }] 
+                }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                }
+            };
+
+            let retries = 5;
+            let delay = 1000;
+
+            while (retries > 0) {
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error('Erro na API');
+
+                    const data = await response.json();
+                    const result = JSON.parse(data.candidates[0].content.parts[0].text);
+                    updateGameState(result);
+                    showLoading(false);
+                    return result;
+                } catch (error) {
+                    retries--;
+                    if (retries === 0) {
+                        showErrorMessage("O Mestre perdeu a conexão com o reino. Tente novamente em instantes.");
+                        showLoading(false);
+                        return null;
+                    }
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        function updateGameState(data) {
+            // Atualizar Status Numericos
+            gameState.hp = Math.max(0, gameState.hp + (data.mudancas_status?.hp || 0));
+            gameState.energy = Math.max(0, gameState.energy + (data.mudancas_status?.energia || 0));
+            gameState.gold = Math.max(0, gameState.gold + (data.mudancas_status?.gold || 0));
+
+            // Atualizar Inventário
+            if (data.itens_ganhos) gameState.inventory.push(...data.itens_ganhos);
+            if (data.itens_perdidos) {
+                data.itens_perdidos.forEach(item => {
+                    const index = gameState.inventory.indexOf(item);
+                    if (index > -1) gameState.inventory.splice(index, 1);
+                });
+            }
+
+            // Notas
+            if (data.notas_atualizadas) gameState.notes = data.notas_atualizadas;
+
+            renderUI(data);
+        }
+
+        function renderUI(data) {
+            // Atualizar HUD
+            document.getElementById('stat-hp').innerText = gameState.hp;
+            document.getElementById('stat-energy').innerText = gameState.energy;
+            document.getElementById('stat-gold').innerText = gameState.gold;
+
+            // Log de Narrativa
+            const log = document.getElementById('game-log');
+            const newEntry = document.createElement('div');
+            newEntry.className = 'animate-fade mb-6';
+            newEntry.innerHTML = `
+                <p class="text-lg leading-relaxed text-slate-200">${data.narrativa}</p>
+            `;
+            log.appendChild(newEntry);
+            log.scrollTop = log.scrollHeight;
+
+            // Notas
+            document.getElementById('game-notes').innerText = gameState.notes;
+
+            // Inventário
+            const invList = document.getElementById('inventory-list');
+            invList.innerHTML = gameState.inventory.length > 0 
+                ? gameState.inventory.map(item => `<li><i class="fa-solid fa-caret-right text-blue-500 mr-2"></i>${item}</li>`).join('')
+                : '<li class="italic text-slate-500">Mochila vazia...</li>';
+
+            // Opções
+            const choicesContainer = document.getElementById('choices-container');
+            choicesContainer.innerHTML = '';
+            
+            if (gameState.hp > 0 && data.opcoes) {
+                data.opcoes.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'choice-btn w-full glass-panel border-l-4 border-l-blue-600 p-4 rounded-r-lg hover:bg-slate-800 text-left';
+                    btn.innerHTML = `<span class="font-bold text-blue-400 mr-2">${opt.id}.</span> ${opt.texto}`;
+                    btn.onclick = () => handleChoice(opt.texto);
+                    choicesContainer.appendChild(btn);
+                });
+                document.getElementById('custom-action').classList.remove('hidden');
+            } else if (gameState.hp <= 0) {
+                choicesContainer.innerHTML = `
+                    <div class="text-center p-6 border-2 border-red-900 rounded-xl bg-red-950/20">
+                        <h3 class="text-2xl font-bold text-red-500 mb-2">FIM DA LINHA</h3>
+                        <p class="text-slate-400 mb-4">Sua alma retorna ao vazio.</p>
+                        <button onclick="location.reload()" class="bg-red-600 p-2 rounded px-4 text-white hover:bg-red-500">Tentar Novamente</button>
+                    </div>
+                `;
+                document.getElementById('custom-action').classList.add('hidden');
+            }
+        }
+
+        async function startGame() {
+            document.getElementById('game-log').innerHTML = '';
+            const result = await fetchGemini("Comece a história. O jogador está em um local inicial clássico de RPG.");
+        }
+
+        async function handleChoice(text) {
+            await fetchGemini(text);
+        }
+
+        async function handleFreeAction() {
+            const input = document.getElementById('free-text');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            input.value = '';
+            await fetchGemini(`Ação Livre do Jogador: ${text}`);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading-indicator').classList.toggle('hidden', !show);
+            document.getElementById('choices-container').classList.toggle('opacity-50', show);
+            document.getElementById('choices-container').style.pointerEvents = show ? 'none' : 'auto';
+        }
+
+        function showErrorMessage(msg) {
+            const log = document.getElementById('game-log');
+            log.innerHTML += `<div class="text-red-400 italic p-2 border border-red-900/50 rounded bg-red-950/10">${msg}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function resetGame() {
+            if (confirm("Tem certeza que deseja apagar o seu progresso e começar do zero?")) {
+                location.reload();
+            }
+        }
+
+        // Listen for Enter key on free text
+        document.getElementById('free-text').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleFreeAction();
+        });
+    </script>
+</body>
+</html>
